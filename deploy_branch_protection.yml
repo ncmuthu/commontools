@@ -1,0 +1,37 @@
+name: Deploy Branch Protection
+on:
+  pull_request:
+
+jobs:
+  deploy-branch-protection:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check enviornment
+      run: |
+        echo "Check the environment name"
+        # Find all YAML files under the .github directory
+        while IFS= read -r yaml_file; do
+            if yq -e '.on' "$yaml_file" | grep -q "push"; then
+            # Check if the enviornment is not set.
+            set_env=$(yq -r '.jobs[].environment' "$yaml_file")
+            if [[ "$set_env" = null ]]; then
+                echo "The environment is not defined in $yaml_file"
+                echo "Allowed environment value for each job is prod, non-prod"
+                exit 1
+            fi
+            # Check if the environment value is other than "prod" or "non-prod"
+            not_allowed_env=$(yq -r '.jobs[].environment | select(. != "prod" and . != "non-prod")' "$yaml_file")
+
+            # If an not allowed environment value is found, exit with status code 1
+            if [[ -n "$not_allowed_env" ]]; then
+                echo "Allowed environment value for each job is prod, non-prod in $yaml_file"
+                exit 1
+            fi
+            fi
+        done < <(find .github -name "*.yml")
+
+        # If no not allowed environment value is found, exit with status code 0
+        echo "Successfully validated the environment set in the workflows"
+        exit 0
