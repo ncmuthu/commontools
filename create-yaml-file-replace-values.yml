@@ -1,0 +1,48 @@
+from ruamel.yaml import YAML
+
+def update_yaml_content(yaml_content, replacements, path=None):
+    if path is None:
+        path = []
+    
+    for key, value in yaml_content.items():
+        if isinstance(value, dict):
+            # Recursive call to navigate through nested dictionaries
+            update_yaml_content(value, replacements, path + [key])
+        elif isinstance(value, list):
+            # Iterate through list elements
+            for i, item in enumerate(value):
+                if isinstance(item, dict):
+                    update_yaml_content(item, replacements, path + [key, str(i)])
+        else:
+            # Construct the full key path as a string
+            full_key = '.'.join(path + [key])
+            # Replace the value if the key matches one in the replacements dictionary
+            if full_key in replacements:
+                yaml_content[key] = replacements[full_key]
+
+def replace_values_in_yaml_template(template_file, replacements):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes in the output file
+    with open(template_file, 'r') as file:
+        yaml_content = yaml.load(file)
+    
+    update_yaml_content(yaml_content, replacements)
+    return yaml_content
+
+def create_yaml_file(file_path, yaml_content):
+    yaml = YAML()
+    yaml.indent(mapping=2, sequence=4, offset=2)  # Setting indentation for better readability
+    with open(file_path, 'w') as file:
+        yaml.dump(yaml_content, file)
+
+# Example usage
+template_file = "template.yml"
+replacements = {
+    "name": "new_repo_name",
+    "project_code": "ux2",
+    "approver.write.0.name": "new_teama"
+}
+output_file = "final.yml"
+
+updated_yaml_content = replace_values_in_yaml_template(template_file, replacements)
+create_yaml_file(output_file, updated_yaml_content)
